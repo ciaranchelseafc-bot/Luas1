@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>myLUAS | Live Tram Times</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #131b2e;
+      --card-border: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --luas-purple: #7c3aed;
+      --luas-purple-glow: rgba(124, 58, 237, 0.3);
+      --red-line: #ef4444;
+      --green-line: #10b981;
+      --due-accent: #f59e0b;
+      --error-bg: #451a1a;
+      --error-text: #fca5a5;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      flex: 1;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 1.1rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 12px var(--luas-purple-glow);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--green-line);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--green-line);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .select-wrapper {
+      position: relative;
+    }
+
+    select {
+      width: 100%;
+      background-color: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 0.85rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      outline: none;
+      appearance: none;
+      cursor: pointer;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    select:focus {
+      border-color: var(--luas-purple);
+      box-shadow: 0 0 0 2px var(--luas-purple-glow);
+    }
+
+    .select-wrapper::after {
+      content: '▼';
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      position: absolute;
+      right: 1.2rem;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .banner {
+      background-color: var(--card-bg);
+      border-left: 4px solid var(--luas-purple);
+      padding: 0.85rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .banner.error-banner {
+      border-left-color: var(--red-line);
+      background-color: var(--error-bg);
+      color: var(--error-text);
+    }
+
+    .direction-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+
+    .direction-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.85rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .tram-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .tram-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .destination {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .due-time {
+      font-size: 1.75rem;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
+    }
+
+    .due-time.is-due {
+      color: var(--due-accent);
+      animation: flash 1.5s infinite;
+    }
+
+    @keyframes flash {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .unit {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-left: 0.15rem;
+    }
+
+    .no-trams {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-style: italic;
+    }
+
+    footer {
+      margin-top: auto;
+      padding: 1.5rem 0 0.5rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      width: 100%;
+      max-width: 480px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <header>
+      <div class="brand">
+        <span class="logo-badge">Luas</span>
+        <h1>myLUAS</h1>
+      </div>
+      <div class="status-indicator">
+        <div class="pulse-dot"></div>
+        <span id="update-time">Updating...</span>
+      </div>
+    </header>
+
+    <div class="select-wrapper">
+      <select id="stop-select">
+        <option value="MYS">Mansion House</option>
+      </select>
+    </div>
+
+    <div id="service-message" class="banner">Fetching live service updates...</div>
+
+    <div id="error-display" class="banner error-banner" style="display: none;"></div>
+
+    <main id="forecast-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+      <!-- Direction cards render here -->
+    </main>
+  </div>
+
+  <footer>
+    Data: Transport Infrastructure Ireland. Built by Ciaran for BDAIB.
+  </footer>
+
+  <script>
+    const STOPS_URL = 'https://luas-class.kluxy.app/stops';
+    const FORECAST_URL = 'https://luas-class.kluxy.app/forecast?stop=';
+    const STORAGE_KEY = 'myLUAS_selected_stop';
+    const DEFAULT_STOP = 'MYS';
+
+    const stopSelect = document.getElementById('stop-select');
+    const serviceMessage = document.getElementById('service-message');
+    const errorDisplay = document.getElementById('error-display');
+    const forecastContainer = document.getElementById('forecast-container');
+    const updateTimeEl = document.getElementById('update-time');
+
+    let currentStop = localStorage.getItem(STORAGE_KEY) || DEFAULT_STOP;
+
+    function showError(msg) {
+      errorDisplay.textContent = msg;
+      errorDisplay.style.display = 'block';
+    }
+
+    function clearError() {
+      errorDisplay.textContent = '';
+      errorDisplay.style.display = 'none';
+    }
+
+    async function loadStops() {
+      try {
+        const res = await fetch(STOPS_URL);
+        if (!res.ok) throw new Error(`Failed to load stops (Status: ${res.status})`);
+        const data = await res.json();
+        
+        const redStops = [];
+        const greenStops = [];
+
+        data.stops.forEach(stop => {
+          if (stop.line === 'red') redStops.push(stop);
+          else if (stop.line === 'green') greenStops.push(stop);
+        });
+
+        const sortByName = (a, b) => a.name.localeCompare(b.name);
+        redStops.sort(sortByName);
+        greenStops.sort(sortByName);
+
+        stopSelect.innerHTML = '';
+
+        const redGroup = document.createElement('optgroup');
+        redGroup.label = 'Red Line';
+        redStops.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.name;
+          redGroup.appendChild(opt);
+        });
+
+        const greenGroup = document.createElement('optgroup');
+        greenGroup.label = 'Green Line';
+        greenStops.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.name;
+          greenGroup.appendChild(opt);
+        });
+
+        stopSelect.appendChild(greenGroup);
+        stopSelect.appendChild(redGroup);
+
+        stopSelect.value = currentStop;
+      } catch (err) {
+        showError(`Stops Error: ${err.message}`);
+      }
+    }
+
+    async function loadForecast() {
+      try {
+        const res = await fetch(FORECAST_URL + currentStop);
+        if (!res.ok) throw new Error(`Forecast request failed (Status: ${res.status})`);
+        const data = await res.json();
+
+        clearError();
+
+        // Update Service Message
+        serviceMessage.textContent = data.message || 'Services operating normally.';
+
+        // Update Forecast Display
+        forecastContainer.innerHTML = '';
+
+        if (!data.directions || data.directions.length === 0) {
+          forecastContainer.innerHTML = '<div class="direction-card"><p class="no-trams">No forecast data available for this stop.</p></div>';
+        } else {
+          data.directions.forEach(dir => {
+            const card = document.createElement('div');
+            card.className = 'direction-card';
+
+            const title = document.createElement('div');
+            title.className = 'direction-title';
+            title.textContent = dir.name || 'Inbound / Outbound';
+            card.appendChild(title);
+
+            const tramList = document.createElement('div');
+            tramList.className = 'tram-list';
+
+            const upcomingTrams = (dir.trams || []).slice(0, 3);
+
+            if (upcomingTrams.length === 0) {
+              tramList.innerHTML = '<p class="no-trams">No trams scheduled</p>';
+            } else {
+              upcomingTrams.forEach(t => {
+                const row = document.createElement('div');
+                row.className = 'tram-row';
+
+                const dest = document.createElement('div');
+                dest.className = 'destination';
+                dest.textContent = t.destination || 'No Destination';
+
+                const due = document.createElement('div');
+                const dueVal = parseInt(t.due, 10);
+
+                if (dueVal === 0 || t.due === '0' || String(t.due).toLowerCase() === 'due') {
+                  due.className = 'due-time is-due';
+                  due.textContent = 'Due';
+                } else {
+                  due.className = 'due-time';
+                  due.innerHTML = `${t.due}<span class="unit">m</span>`;
+                }
+
+                row.appendChild(dest);
+                row.appendChild(due);
+                tramList.appendChild(row);
+              });
+            }
+
+            card.appendChild(tramList);
+            forecastContainer.appendChild(card);
+          });
+        }
+
+        const now = new Date();
+        updateTimeEl.textContent = `Updated ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+
+      } catch (err) {
+        showError(`Forecast Error: ${err.message}`);
+      }
+    }
+
+    stopSelect.addEventListener('change', (e) => {
+      currentStop = e.target.value;
+      localStorage.setItem(STORAGE_KEY, currentStop);
+      loadForecast();
+    });
+
+    // Initial setup
+    loadStops().then(() => {
+      loadForecast();
+    });
+
+    // Auto-refresh every 20 seconds
+    setInterval(loadForecast, 20000);
+  </script>
+</body>
+</html>
